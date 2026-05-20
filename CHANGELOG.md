@@ -79,3 +79,13 @@ All notable changes to this project will be documented in this file. This will p
 ### Changed
 
 - Updating CHANGELOG Format.
+
+## [0.2.5] - 2026-05-20
+
+### Added
+
+- Added Mandatory tag and updated Terraform tests.
+
+### Changed
+
+- Updating Terraform minimum version.
