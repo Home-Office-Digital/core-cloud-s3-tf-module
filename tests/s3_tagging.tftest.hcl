@@ -31,6 +31,7 @@ variables {
     owner-business   = "test"
     budget-holder    = "testteam"
     source-repo      = "UKHomeOffice/core-cloud-s3-tf-module"
+    hosting-platform = "test-platform"
   }
 }
 
@@ -81,6 +82,11 @@ run "validate_mandatory_tags_on_bucket" {
     condition     = contains(keys(aws_s3_bucket.this.tags), "source-repo")
     error_message = "source-repo tag must be present on S3 bucket"
   }
+
+  assert {
+    condition     = contains(keys(aws_s3_bucket.this.tags), "hosting-platform")
+    error_message = "hosting-platform tag must be present on S3 bucket"
+  }
 }
 
 run "validate_tag_values" {
@@ -123,6 +129,7 @@ run "validate_additional_tags_merged" {
       owner-business   = "test"
       budget-holder    = "testteam"
       source-repo      = "UKHomeOffice/core-cloud-s3-tf-module"
+      hosting-platform = "test-platform"
       CustomTag        = "CustomValue"
     }
   }

@@ -31,6 +31,7 @@ variables {
     owner-business   = "test"
     budget-holder    = "testteam"
     source-repo      = "UKHomeOffice/core-cloud-s3-tf-module"
+    hosting-platform = "test-platform"
   }
 }
 
