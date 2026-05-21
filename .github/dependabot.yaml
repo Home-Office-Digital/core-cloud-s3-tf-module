@@ -7,7 +7,7 @@ updates:
     commit-message:
       prefix: "(GHA)"
     reviewers:
-      - "UKHomeOffice/core-cloud-devops"
+      - "Home-Office-Digital/core-cloud-devops"
     labels:
       - "dependencies"
       - "patch"
@@ -18,7 +18,7 @@ updates:
     commit-message:
       prefix: "(TF)"
     reviewers:
-      - "UKHomeOffice/core-cloud-devops"
+      - "Home-Office-Digital/core-cloud-devops"
     labels:
       - "dependencies"
       - "patch"

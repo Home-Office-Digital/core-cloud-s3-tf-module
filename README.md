@@ -6,23 +6,23 @@ Terraform validate, Terraform fmt, TFLint, Checkov scan, Sonarqube scan and Sema
 ## Module Structure
 
 <strong>---| .github</strong>  
-&nbsp;&nbsp;&nbsp;&nbsp;<strong>---| [dependabot.yaml](https://github.com/UKHomeOffice/core-cloud-s3-tf-module/blob/CCL-7090/.github/dependabot.yaml)</strong> - Checks repository daily for any dependency updates and raises a PR into main for review.  \
+&nbsp;&nbsp;&nbsp;&nbsp;<strong>---| [dependabot.yaml](https://github.com/Home-Office-Digital/core-cloud-s3-tf-module/blob/CCL-7090/.github/dependabot.yaml)</strong> - Checks repository daily for any dependency updates and raises a PR into main for review.  \
 &nbsp;&nbsp;&nbsp;&nbsp;<strong>---| workflows</strong> \
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>---| [pull-request-sast.yaml](https://github.com/UKHomeOffice/core-cloud-s3-tf-module/blob/CCL-7090/.github/workflows/pull-request-sast.yaml)</strong> - Workflow containing terraform init, terraform validate, terraform fmt - referencing Core Cloud TFLint, Checkov scan and Sonarqube scan shared workflows. Runs on pull request and merge to main branch. \
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>---| [pull-request-semver-label-check.yaml](https://github.com/UKHomeOffice/core-cloud-s3-tf-module/blob/CCL-7090/.github/workflows/pull-request-semver-label-check.yaml)</strong> - Verifies all PRs to main raised in the module must have an appropriate semver label: major/minor/patch. \
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>---| [pull-request-semver-tag-merge.yaml](https://github.com/UKHomeOffice/core-cloud-s3-tf-module/blob/CCL-7090/.github/workflows/pull-request-semver-tag-merge.yaml)</strong> - Calculates the new semver value depending on the PR label and tags the repository with the correct tag. \
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>---| [pull-request-sast.yaml](https://github.com/Home-Office-Digital/core-cloud-s3-tf-module/blob/CCL-7090/.github/workflows/pull-request-sast.yaml)</strong> - Workflow containing terraform init, terraform validate, terraform fmt - referencing Core Cloud TFLint, Checkov scan and Sonarqube scan shared workflows. Runs on pull request and merge to main branch. \
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>---| [pull-request-semver-label-check.yaml](https://github.com/Home-Office-Digital/core-cloud-s3-tf-module/blob/CCL-7090/.github/workflows/pull-request-semver-label-check.yaml)</strong> - Verifies all PRs to main raised in the module must have an appropriate semver label: major/minor/patch. \
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>---| [pull-request-semver-tag-merge.yaml](https://github.com/Home-Office-Digital/core-cloud-s3-tf-module/blob/CCL-7090/.github/workflows/pull-request-semver-tag-merge.yaml)</strong> - Calculates the new semver value depending on the PR label and tags the repository with the correct tag. \
 <strong>---| tests</strong> \
-&nbsp;&nbsp;<strong>---| [s3.tftest.hcl](https://github.com/UKHomeOffice/core-cloud-s3-tf-module/blob/CCL-7090/tests/s3.tftest.hcl)</strong> \
-<strong>---| [CHANGELOG.md](https://github.com/UKHomeOffice/core-cloud-s3-tf-module/blob/CCL-7090/CHANGELOG.md)</strong> - Contains all significant changes in relation to a semver tag made to this module. \
-<strong>---| [CODEOWNERS](https://github.com/UKHomeOffice/core-cloud-s3-tf-module/blob/CCL-7090/CODEOWNERS)</strong> \
-<strong>---| [CODE_OF_CONDUCT](https://github.com/UKHomeOffice/core-cloud-s3-tf-module/blob/CCL-7090/CODE_OF_CONDUCT.md)</strong> \
-<strong>---| [CONTRIBUTING.md](https://github.com/UKHomeOffice/core-cloud-s3-tf-module/blob/CCL-7090/CONTRIBUTING.md)</strong>  \
-<strong>---| [LICENSE.md](https://github.com/UKHomeOffice/core-cloud-s3-tf-module/blob/CCL-7090/LICENSE.md)</strong>  \
-<strong>---| [README.md](https://github.com/UKHomeOffice/core-cloud-s3-tf-module/blob/CCL-7090/README.md)</strong>  \
-<strong>---| [main.tf](https://github.com/UKHomeOffice/core-cloud-s3-tf-module/blob/CCL-7090/main.tf)</strong> - Contains the main set of configuration for this module.  \
-<strong>---| [outputs.tf](https://github.com/UKHomeOffice/core-cloud-s3-tf-module/blob/CCL-7090/outputs.tf)</strong> - Contain the output definitions for this module.  \
-<strong>---| [variables.tf](https://github.com/UKHomeOffice/core-cloud-s3-tf-module/blob/CCL-7090/variables.tf)</strong> - Contains the declarations for module variables, all variables have a defined type and short description outlining their purpose.  \
-<strong>---| [versions.tf](https://github.com/UKHomeOffice/core-cloud-s3-tf-module/blob/CCL-7090/versions.tf)</strong> - Contains the providers needed by the module.  
+&nbsp;&nbsp;<strong>---| [s3.tftest.hcl](https://github.com/Home-Office-Digital/core-cloud-s3-tf-module/blob/CCL-7090/tests/s3.tftest.hcl)</strong> \
+<strong>---| [CHANGELOG.md](https://github.com/Home-Office-Digital/core-cloud-s3-tf-module/blob/CCL-7090/CHANGELOG.md)</strong> - Contains all significant changes in relation to a semver tag made to this module. \
+<strong>---| [CODEOWNERS](https://github.com/Home-Office-Digital/core-cloud-s3-tf-module/blob/CCL-7090/CODEOWNERS)</strong> \
+<strong>---| [CODE_OF_CONDUCT](https://github.com/Home-Office-Digital/core-cloud-s3-tf-module/blob/CCL-7090/CODE_OF_CONDUCT.md)</strong> \
+<strong>---| [CONTRIBUTING.md](https://github.com/Home-Office-Digital/core-cloud-s3-tf-module/blob/CCL-7090/CONTRIBUTING.md)</strong>  \
+<strong>---| [LICENSE.md](https://github.com/Home-Office-Digital/core-cloud-s3-tf-module/blob/CCL-7090/LICENSE.md)</strong>  \
+<strong>---| [README.md](https://github.com/Home-Office-Digital/core-cloud-s3-tf-module/blob/CCL-7090/README.md)</strong>  \
+<strong>---| [main.tf](https://github.com/Home-Office-Digital/core-cloud-s3-tf-module/blob/CCL-7090/main.tf)</strong> - Contains the main set of configuration for this module.  \
+<strong>---| [outputs.tf](https://github.com/Home-Office-Digital/core-cloud-s3-tf-module/blob/CCL-7090/outputs.tf)</strong> - Contain the output definitions for this module.  \
+<strong>---| [variables.tf](https://github.com/Home-Office-Digital/core-cloud-s3-tf-module/blob/CCL-7090/variables.tf)</strong> - Contains the declarations for module variables, all variables have a defined type and short description outlining their purpose.  \
+<strong>---| [versions.tf](https://github.com/Home-Office-Digital/core-cloud-s3-tf-module/blob/CCL-7090/versions.tf)</strong> - Contains the providers needed by the module.  
 
 ## Terraform Tests
 
@@ -45,7 +45,7 @@ See the below example configuration (We recommend one file per s3 bucket when us
 
 ```
 terraform {
-  source = "git::https://github.com/UKHomeOffice/core-cloud-s3-tf-module.git?ref={tag}"
+  source = "git::https://github.com/Home-Office-Digital/core-cloud-s3-tf-module.git?ref={tag}"
 }
 
 inputs = {
