@@ -16,7 +16,7 @@ variables {
   environment     = "test"
   encryption_type = "aws:kms"
   region          = "eu-west-2"
-  source-repo     = "github.com/UKHomeOffice/core-cloud-s3-tf-module"
+  source-repo     = "github.com/Home-Office-Digital/core-cloud-s3-tf-module"
   email_address   = "test@test"
 
   tags = {
@@ -30,7 +30,7 @@ variables {
     environment-type = "test"
     owner-business   = "test"
     budget-holder    = "testteam"
-    source-repo      = "UKHomeOffice/core-cloud-s3-tf-module"
+    source-repo      = "Home-Office-Digital/core-cloud-s3-tf-module"
     hosting-platform = "test-platform"
   }
 }
@@ -128,7 +128,7 @@ run "validate_additional_tags_merged" {
       environment-type = "test"
       owner-business   = "test"
       budget-holder    = "testteam"
-      source-repo      = "UKHomeOffice/core-cloud-s3-tf-module"
+      source-repo      = "Home-Office-Digital/core-cloud-s3-tf-module"
       hosting-platform = "test-platform"
       CustomTag        = "CustomValue"
     }
