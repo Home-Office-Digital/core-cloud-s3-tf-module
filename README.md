@@ -40,6 +40,18 @@ Recommended settings:
 - S3 Encryption type must be 'aws:kms' or 'AES256'.
 
 - Note: S3 Event notifications, access logging and replication is enabled by default when using this module. All public access will be blocked for the S3 bucket and all connections to S3 buckets created by this module use TLS.
+- Note: GuardDuty Malware Protection is optional and disabled by default.
+
+## GuardDuty Malware Protection
+
+This module optionally enables Amazon GuardDuty Malware Protection for S3 on the primary bucket.
+
+When enabled, uploaded objects in this bucket are scanned for malware.
+
+Prerequisite:
+Amazon GuardDuty must already be enabled in the AWS account and region.
+
+This module does not create or manage account-level GuardDuty resources.
 
 See the below example configuration (We recommend one file per s3 bucket when using this module):
 
@@ -57,6 +69,7 @@ inputs = {
   encryption_type            = "aws:kms"
   account_id                 = "xxxxx"
   email_address              = "<project-shared-mailbox>"
+  enable_malware_protection  = true
 
 
   # Tags for all resources
@@ -97,8 +110,12 @@ No modules.
 | Name | Type |
 |------|------|
 | [aws_iam_policy.s3_replication](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
+| [aws_iam_policy.cc_s3_malware_protection](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
 | [aws_iam_role.cc_s3_replication_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role.cc_s3_malware_protection](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy_attachment.s3_replication](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.cc_s3_malware_protection](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_guardduty_malware_protection_plan.cc_s3](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/guardduty_malware_protection_plan) | resource |
 | [aws_kms_alias.s3](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_alias) | resource |
 | [aws_kms_key.s3](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key) | resource |
 | [aws_kms_key_policy.bucket_kms_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key_policy) | resource |
@@ -128,10 +145,12 @@ No modules.
 | [aws_sns_topic.event_topic](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sns_topic) | resource |
 | [aws_sns_topic_subscription.topic-email-subscription](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sns_topic_subscription) | resource |
 | [aws_iam_policy_document.cc_assume_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
+| [aws_iam_policy_document.cc_assume_role_malware_protection](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 | [aws_iam_policy_document.cc_https_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 | [aws_iam_policy_document.cc_https_policy_logs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 | [aws_iam_policy_document.cc_https_policy_replica](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 | [aws_iam_policy_document.cc_logging_bucket_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
+| [aws_iam_policy_document.cc_s3_malware_protection](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 | [aws_iam_policy_document.cc_s3_replication](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 
 ## Inputs
@@ -144,6 +163,7 @@ No modules.
 | <a name="input_destination_bucket"></a> [destination\_bucket](#input\_destination\_bucket) | The ARN of the existing s3 bucket to replicate generated reports to. | `string` | `""` | no |
 | <a name="input_email_address"></a> [email\_address](#input\_email\_address) | Shared project mailbox. | `string` | `""` | no |
 | <a name="input_enable_versioning"></a> [enable\_versioning](#input\_enable\_versioning) | Enable versioning for the bucket | `bool` | `true` | no |
+| <a name="input_enable_malware_protection"></a> [enable\_malware\_protection](#input\_enable\_malware\_protection) | Enable GuardDuty Malware Protection for the primary S3 bucket | `bool` | `false` | no |
 | <a name="input_encryption_type"></a> [encryption\_type](#input\_encryption\_type) | The server-side encryption algorithm to use. Valid values are 'aws:kms' or 'AES256'. AES256 is for SSE-S3 | `string` | `"aws:kms"` | no |
 | <a name="input_environment"></a> [environment](#input\_environment) | Environment name | `string` | n/a | yes |
 | <a name="input_kms_alias"></a> [kms\_alias](#input\_kms\_alias) | KMS key alias for bucket encryption | `string` | n/a | yes |

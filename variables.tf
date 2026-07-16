@@ -108,3 +108,9 @@ variable "email_address" {
   default     = ""
   description = "Shared project mailbox."
 }
+
+variable "enable_malware_protection" {
+  description = "Enable GuardDuty Malware Protection for the primary S3 bucket"
+  type        = bool
+  default     = false
+}
