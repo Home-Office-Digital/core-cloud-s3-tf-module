@@ -89,3 +89,18 @@ All notable changes to this project will be documented in this file. This will p
 ### Changed
 
 - Updating Terraform minimum version.
+
+## [0.3.0] - 2026-08-02
+
+### Added
+
+- Adding GuardDuty Malware Protection support for S3.
+
+## [1.0.0] - 2026-08-05
+
+### Breaking
+
+- Lifecycle inputs moved to flexible per-bucket rule lists.
+- Removed legacy lifecycle inputs: lifecycle_expiration_days, lifecycle_expiration_days_logs, days_after_initiation.
+- By default, lifecycle_primary_rules and lifecycle_replica_rules are empty ([]), and lifecycle_logs_rules contains one default rule (id = cc-bucket-lifecycle-rule-logs, expiration.days = 60).
+- Global abort multipart rule is always enforced per bucket via default_abort_incomplete_multipart_upload_days (default 15).

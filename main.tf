@@ -109,29 +109,25 @@ resource "aws_s3_bucket_notification" "bucket_notification" {
   }
 }
 
-resource "aws_s3_bucket_lifecycle_configuration" "this" {
-  bucket = aws_s3_bucket.this.id
+module "lifecycle_primary" {
+  source                                         = "./modules/s3_bucket_lifecycle_configuration"
+  bucket_id                                      = aws_s3_bucket.this.id
+  rules                                          = var.lifecycle_primary_rules
+  default_abort_incomplete_multipart_upload_days = var.default_abort_incomplete_multipart_upload_days
+}
 
-  rule {
-    id     = "cc-bucket-lifecycle-rule"
-    status = "Enabled"
-    filter {}
-    expiration {
-      days = var.lifecycle_expiration_days
-    }
-  }
+module "lifecycle_replica" {
+  source                                         = "./modules/s3_bucket_lifecycle_configuration"
+  bucket_id                                      = aws_s3_bucket.s3_replica.id
+  rules                                          = var.lifecycle_replica_rules
+  default_abort_incomplete_multipart_upload_days = var.default_abort_incomplete_multipart_upload_days
+}
 
-  rule {
-    id     = "cc-abort-incomplete-multipart-uploads"
-    status = "Enabled"
-
-    # No filter → applies to all multipart uploads
-    filter {}
-
-    abort_incomplete_multipart_upload {
-      days_after_initiation = var.days_after_initiation
-    }
-  }
+module "lifecycle_logs" {
+  source                                         = "./modules/s3_bucket_lifecycle_configuration"
+  bucket_id                                      = aws_s3_bucket.logs.id
+  rules                                          = var.lifecycle_logs_rules
+  default_abort_incomplete_multipart_upload_days = var.default_abort_incomplete_multipart_upload_days
 }
 
 data "aws_iam_policy_document" "cc_assume_role" {
@@ -232,35 +228,13 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "replica" {
   }
 }
 
-resource "aws_s3_bucket_lifecycle_configuration" "replica" {
-  bucket = aws_s3_bucket.s3_replica.id
-
-  rule {
-    id     = "cc-bucket-lifecycle-rule-replica"
-    status = "Enabled"
-    filter {}
-    expiration {
-      days = var.lifecycle_expiration_days
-    }
-  }
-
-  rule {
-    id     = "cc-abort-incomplete-multipart-uploads-replica"
-    status = "Enabled"
-
-    # No filter → applies to all multipart uploads
-    filter {}
-
-    abort_incomplete_multipart_upload {
-      days_after_initiation = var.days_after_initiation
-    }
-  }
-}
-
 resource "aws_s3_bucket_replication_configuration" "cc_bucket_replication_rule" {
-  depends_on = [aws_s3_bucket_versioning.s3_replica_versioning]
-  bucket     = aws_s3_bucket.this.id
-  role       = aws_iam_role.cc_s3_replication_role.arn
+  depends_on = [
+    aws_s3_bucket_versioning.this,
+    aws_s3_bucket_versioning.s3_replica_versioning,
+  ]
+  bucket = aws_s3_bucket.this.id
+  role   = aws_iam_role.cc_s3_replication_role.arn
   rule {
     id = var.replication_rule
     filter {}
@@ -477,31 +451,6 @@ resource "aws_s3_bucket_public_access_block" "logs" {
   restrict_public_buckets = true
 }
 
-resource "aws_s3_bucket_lifecycle_configuration" "logs" {
-  bucket = aws_s3_bucket.logs.id
-
-  rule {
-    id     = "cc-bucket-lifecycle-rule-logs"
-    status = "Enabled"
-    filter {}
-    expiration {
-      days = var.lifecycle_expiration_days_logs
-    }
-  }
-
-  rule {
-    id     = "cc-abort-incomplete-multipart-uploads-logs"
-    status = "Enabled"
-
-    # No filter → applies to all multipart uploads
-    filter {}
-
-    abort_incomplete_multipart_upload {
-      days_after_initiation = var.days_after_initiation
-    }
-  }
-}
-
 data "aws_iam_policy_document" "cc_logging_bucket_policy" {
   statement {
     principals {
@@ -520,7 +469,7 @@ data "aws_iam_policy_document" "cc_logging_bucket_policy" {
 
 resource "aws_s3_bucket_policy" "logging" {
   bucket = aws_s3_bucket.logs.bucket
-  policy = data.aws_iam_policy_document.cc_logging_bucket_policy.json
+  policy = data.aws_iam_policy_document.cc_logs_combined_policy.json
 }
 
 resource "aws_s3_bucket_logging" "bucket_logging" {
@@ -607,9 +556,11 @@ data "aws_iam_policy_document" "cc_https_policy_logs" {
   }
 }
 
-resource "aws_s3_bucket_policy" "cc_deny_http_logs" {
-  bucket = aws_s3_bucket.logs.id
-  policy = data.aws_iam_policy_document.cc_https_policy_logs.json
+data "aws_iam_policy_document" "cc_logs_combined_policy" {
+  source_policy_documents = [
+    data.aws_iam_policy_document.cc_logging_bucket_policy.json,
+    data.aws_iam_policy_document.cc_https_policy_logs.json,
+  ]
 }
 
 locals {

@@ -72,25 +72,6 @@ variable "account_id" {
   type        = string
 }
 
-variable "lifecycle_expiration_days" {
-  description = "Number of days to keep s3 objects before expiration"
-  type        = number
-  default     = 30
-}
-
-variable "lifecycle_expiration_days_logs" {
-  description = "Number of days to keep s3 objects in logging bucket before expiration"
-  type        = number
-  default     = 60
-}
-
-
-variable "days_after_initiation" {
-  description = "Specifies the number of days after initiating a multipart upload when the multipart upload must be completed."
-  default     = 15
-  type        = number
-}
-
 variable "replication_rule" {
   type        = string
   description = "The name of the replication rule applied to S3"
@@ -113,4 +94,142 @@ variable "enable_malware_protection" {
   description = "Enable GuardDuty Malware Protection for the primary S3 bucket"
   type        = bool
   default     = false
+}
+
+variable "default_abort_incomplete_multipart_upload_days" {
+  description = "Number of days after a multipart upload is initiated before the module's enforced global abort rule cancels the incomplete upload."
+  type        = number
+  default     = 15
+}
+
+variable "lifecycle_primary_rules" {
+  description = "Lifecycle rules for the primary bucket. Set to [] for no additional user lifecycle rules."
+  type = list(object({
+    id      = optional(string)
+    status  = optional(string)
+    enabled = optional(bool)
+
+    filter = optional(object({
+      prefix                   = optional(string)
+      object_size_greater_than = optional(number)
+      object_size_less_than    = optional(number)
+      tags                     = optional(map(string))
+    }))
+
+    expiration = optional(object({
+      date                         = optional(string)
+      days                         = optional(number)
+      expired_object_delete_marker = optional(bool)
+    }))
+
+    transitions = optional(list(object({
+      date          = optional(string)
+      days          = optional(number)
+      storage_class = string
+    })))
+
+    noncurrent_version_expiration = optional(object({
+      noncurrent_days           = optional(number)
+      newer_noncurrent_versions = optional(number)
+    }))
+
+    noncurrent_version_transitions = optional(list(object({
+      noncurrent_days           = number
+      newer_noncurrent_versions = optional(number)
+      storage_class             = string
+    })))
+  }))
+
+  default = []
+}
+
+variable "lifecycle_replica_rules" {
+  description = "Lifecycle rules for the replica bucket. Set to [] for no additional user lifecycle rules."
+  type = list(object({
+    id      = optional(string)
+    status  = optional(string)
+    enabled = optional(bool)
+
+    filter = optional(object({
+      prefix                   = optional(string)
+      object_size_greater_than = optional(number)
+      object_size_less_than    = optional(number)
+      tags                     = optional(map(string))
+    }))
+
+    expiration = optional(object({
+      date                         = optional(string)
+      days                         = optional(number)
+      expired_object_delete_marker = optional(bool)
+    }))
+
+    transitions = optional(list(object({
+      date          = optional(string)
+      days          = optional(number)
+      storage_class = string
+    })))
+
+    noncurrent_version_expiration = optional(object({
+      noncurrent_days           = optional(number)
+      newer_noncurrent_versions = optional(number)
+    }))
+
+    noncurrent_version_transitions = optional(list(object({
+      noncurrent_days           = number
+      newer_noncurrent_versions = optional(number)
+      storage_class             = string
+    })))
+  }))
+
+  default = []
+}
+
+variable "lifecycle_logs_rules" {
+  description = "Lifecycle rules for the logs bucket. Set to [] for no additional user lifecycle rules."
+  type = list(object({
+    id      = optional(string)
+    status  = optional(string)
+    enabled = optional(bool)
+
+    filter = optional(object({
+      prefix                   = optional(string)
+      object_size_greater_than = optional(number)
+      object_size_less_than    = optional(number)
+      tags                     = optional(map(string))
+    }))
+
+    expiration = optional(object({
+      date                         = optional(string)
+      days                         = optional(number)
+      expired_object_delete_marker = optional(bool)
+    }))
+
+    transitions = optional(list(object({
+      date          = optional(string)
+      days          = optional(number)
+      storage_class = string
+    })))
+
+    noncurrent_version_expiration = optional(object({
+      noncurrent_days           = optional(number)
+      newer_noncurrent_versions = optional(number)
+    }))
+
+    noncurrent_version_transitions = optional(list(object({
+      noncurrent_days           = number
+      newer_noncurrent_versions = optional(number)
+      storage_class             = string
+    })))
+  }))
+
+  default = [
+    {
+      id     = "cc-bucket-lifecycle-rule-logs"
+      status = "Enabled"
+      filter = {}
+      expiration = {
+        days = 60
+      }
+    }
+  ]
 }
