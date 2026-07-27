@@ -44,12 +44,11 @@ Recommended settings:
 
 ## GuardDuty Malware Protection
 
-This module optionally enables Amazon GuardDuty Malware Protection for S3 on the primary bucket.
+You can make uploaded objects in this bucket be scanned for malware by setting `enable_malware_protection = true` to turn on [Amazon GuardDuty Malware Protection for S3](https://docs.aws.amazon.com/guardduty/latest/ug/gdu-malware-protection-s3.html). Amazon GuardDuty must already be enabled in the bucket's AWS account and region.
 
-When enabled, uploaded objects in this bucket are scanned for malware.
+Enabling `enable_malware_protection` also enables EventBridge notifications for the primary bucket so S3 object events can be sent to GuardDuty Malware Protection for S3.
 
-Prerequisite:
-Amazon GuardDuty must already be enabled in the AWS account and region.
+GuardDuty Malware Protection for S3 uses an AWS-managed EventBridge rule for this integration.
 
 This module does not create or manage account-level GuardDuty resources.
 
