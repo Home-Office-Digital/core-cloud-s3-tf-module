@@ -100,7 +100,9 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "this" {
 }
 
 resource "aws_s3_bucket_notification" "bucket_notification" {
-  bucket = aws_s3_bucket.this.id
+  bucket      = aws_s3_bucket.this.id
+  eventbridge = var.enable_malware_protection
+
   topic {
     topic_arn = aws_sns_topic.event_topic.arn
     events    = ["s3:ObjectCreated:*"]
@@ -275,6 +277,171 @@ resource "aws_s3_bucket_replication_configuration" "cc_bucket_replication_rule" 
     }
     status = "Enabled"
   }
+}
+
+data "aws_iam_policy_document" "cc_assume_role_malware_protection" {
+  count = var.enable_malware_protection ? 1 : 0
+
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["malware-protection-plan.guardduty.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "cc_s3_malware_protection" {
+  count = var.enable_malware_protection ? 1 : 0
+
+  name               = "${var.project_name}-${var.bucket_name}-${var.environment}-malware-role"
+  assume_role_policy = data.aws_iam_policy_document.cc_assume_role_malware_protection[0].json
+  tags               = local.common_tags
+}
+
+data "aws_iam_policy_document" "cc_s3_malware_protection" {
+  count = var.enable_malware_protection ? 1 : 0
+
+  statement {
+    sid    = "AllowManagedRuleToSendS3EventsToGuardDuty"
+    effect = "Allow"
+    actions = [
+      "events:PutRule",
+      "events:DeleteRule",
+      "events:PutTargets",
+      "events:RemoveTargets",
+    ]
+    resources = [
+      "arn:aws:events:${var.region}:${var.account_id}:rule/DO-NOT-DELETE-AmazonGuardDutyMalwareProtectionS3*",
+    ]
+
+    condition {
+      test     = "StringLike"
+      variable = "events:ManagedBy"
+      values   = ["malware-protection-plan.guardduty.amazonaws.com"]
+    }
+  }
+
+  statement {
+    sid    = "AllowGuardDutyToMonitorEventBridgeManagedRule"
+    effect = "Allow"
+    actions = [
+      "events:DescribeRule",
+      "events:ListTargetsByRule",
+    ]
+    resources = [
+      "arn:aws:events:${var.region}:${var.account_id}:rule/DO-NOT-DELETE-AmazonGuardDutyMalwareProtectionS3*",
+    ]
+  }
+
+  statement {
+    sid    = "AllowPostScanTag"
+    effect = "Allow"
+    actions = [
+      "s3:PutObjectTagging",
+      "s3:GetObjectTagging",
+      "s3:PutObjectVersionTagging",
+      "s3:GetObjectVersionTagging",
+    ]
+    resources = [
+      "${aws_s3_bucket.this.arn}/*",
+    ]
+  }
+
+  statement {
+    sid    = "AllowEnableS3EventBridgeEvents"
+    effect = "Allow"
+    actions = [
+      "s3:PutBucketNotification",
+      "s3:GetBucketNotification",
+    ]
+    resources = [
+      aws_s3_bucket.this.arn,
+    ]
+  }
+
+  statement {
+    sid    = "AllowPutValidationObject"
+    effect = "Allow"
+    actions = [
+      "s3:PutObject",
+    ]
+    resources = [
+      "${aws_s3_bucket.this.arn}/malware-protection-resource-validation-object",
+    ]
+  }
+
+  statement {
+    sid    = "AllowCheckBucketOwnership"
+    effect = "Allow"
+    actions = [
+      "s3:ListBucket",
+    ]
+    resources = [
+      aws_s3_bucket.this.arn,
+    ]
+  }
+
+  statement {
+    sid    = "AllowMalwareScan"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:GetObjectVersion",
+    ]
+    resources = [
+      "${aws_s3_bucket.this.arn}/*",
+    ]
+  }
+
+  statement {
+    sid    = "AllowKMSForValidationAndScan"
+    effect = "Allow"
+    actions = [
+      "kms:Decrypt",
+      "kms:GenerateDataKey",
+    ]
+    resources = [
+      aws_kms_key.s3.arn,
+    ]
+  }
+}
+
+resource "aws_iam_policy" "cc_s3_malware_protection" {
+  count = var.enable_malware_protection ? 1 : 0
+
+  name   = "${var.project_name}-${var.bucket_name}-${var.environment}-malware-policy"
+  policy = data.aws_iam_policy_document.cc_s3_malware_protection[0].json
+  tags   = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "cc_s3_malware_protection" {
+  count = var.enable_malware_protection ? 1 : 0
+
+  role       = aws_iam_role.cc_s3_malware_protection[0].name
+  policy_arn = aws_iam_policy.cc_s3_malware_protection[0].arn
+}
+
+resource "aws_guardduty_malware_protection_plan" "cc_s3" {
+  count = var.enable_malware_protection ? 1 : 0
+
+  role = aws_iam_role.cc_s3_malware_protection[0].arn
+
+  protected_resource {
+    s3_bucket {
+      bucket_name = aws_s3_bucket.this.id
+    }
+  }
+
+  actions {
+    tagging {
+      status = "ENABLED"
+    }
+  }
+
+  tags = local.common_tags
 }
 
 resource "aws_s3_bucket" "logs" {
