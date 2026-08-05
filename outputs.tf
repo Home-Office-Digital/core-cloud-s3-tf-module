@@ -15,3 +15,9 @@ output "kms_key_id" {
   value       = aws_kms_key.s3.id
   sensitive   = true
 }
+
+output "kms_key_arn" {
+  description = "The KMS Key ARN of the bucket"
+  value       = aws_kms_key.s3.arn
+  sensitive   = true
+}
