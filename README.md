@@ -104,6 +104,28 @@ Usage:
 Rule support includes filters (`prefix`, size bounds, tags), expiration, transitions,
 and noncurrent-version transitions/expiration.
 
+## External Replication To Primary Bucket
+
+To allow a source bucket in another module/account to replicate into this module's primary bucket,
+set `external_replication_role_arns` to one or more source replication IAM role ARNs.
+
+When set, this module adds:
+
+- Primary bucket policy permissions for `s3:ReplicateObject`, `s3:ReplicateDelete`, `s3:ReplicateTags`, and `s3:ObjectOwnerOverrideToBucketOwner`
+- KMS key policy permissions for those roles to use the bucket KMS key for replication encryption
+
+Implementation detail:
+
+- Why not use the role ARN directly as the policy principal:
+  - S3 and KMS validate principals at policy-apply time.
+  - If the source replication role does not exist yet, policy apply fails with invalid principal errors.
+- How this module solves that safely:
+  - It uses source account root principals (which always exist) so policy apply succeeds in a destination-first rollout.
+  - It then constrains access with `aws:PrincipalArn` to only the supplied replication role ARN(s) and matching assumed-role session ARN patterns.
+  - Net effect: two-step deployment works (destination first, source second) without granting broad account access.
+
+If the list is empty (default), no external replication permissions are added.
+
 ### Lifecycle Example
 
 Override primary lifecycle:

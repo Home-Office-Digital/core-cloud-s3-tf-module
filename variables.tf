@@ -90,6 +90,19 @@ variable "email_address" {
   description = "Shared project mailbox."
 }
 
+variable "external_replication_role_arns" {
+  description = "Optional list of source IAM role ARNs allowed to replicate objects into this bucket"
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for arn in var.external_replication_role_arns : can(regex("^arn:aws:iam::[0-9]{12}:role/.+", arn))
+    ])
+    error_message = "external_replication_role_arns must contain valid IAM role ARNs."
+  }
+}
+
 variable "enable_malware_protection" {
   description = "Enable GuardDuty Malware Protection for the primary S3 bucket"
   type        = bool

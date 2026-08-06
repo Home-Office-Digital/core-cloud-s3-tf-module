@@ -6,23 +6,64 @@ resource "aws_kms_key" "s3" {
   tags = local.common_tags
 }
 
+data "aws_iam_policy_document" "bucket_kms_policy_base" {
+  statement {
+    sid    = "EnableIAMUserPermissions"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${var.account_id}:root"]
+    }
+
+    actions   = ["kms:*"]
+    resources = ["*"]
+  }
+}
+
+data "aws_iam_policy_document" "bucket_kms_policy_external_replication" {
+  count = length(var.external_replication_role_arns) > 0 ? 1 : 0
+
+  # Use source account root principals constrained by aws:PrincipalArn so destination
+  # policies can be applied before the source replication role exists, while still
+  # only allowing the intended deterministic role/session ARNs.
+  statement {
+    sid    = "AllowExternalReplicationRoles"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = local.external_replication_account_root_arns
+    }
+
+    actions = [
+      "kms:Encrypt",
+      "kms:Decrypt",
+      "kms:ReEncrypt*",
+      "kms:GenerateDataKey*",
+      "kms:DescribeKey",
+    ]
+
+    condition {
+      test     = "ArnLike"
+      variable = "aws:PrincipalArn"
+      values   = local.external_replication_principal_arn_patterns
+    }
+
+    resources = ["*"]
+  }
+}
+
+data "aws_iam_policy_document" "bucket_kms_policy_combined" {
+  source_policy_documents = concat(
+    [data.aws_iam_policy_document.bucket_kms_policy_base.json],
+    length(var.external_replication_role_arns) > 0 ? [data.aws_iam_policy_document.bucket_kms_policy_external_replication[0].json] : []
+  )
+}
+
 resource "aws_kms_key_policy" "bucket_kms_policy" {
   key_id = aws_kms_key.s3.id
-  policy = jsonencode({
-    "Version" : "2012-10-17",
-    "Id" : "bucket_kms_policy",
-    "Statement" : [
-      {
-        "Sid" : "EnableIAMUserPermissions",
-        "Effect" : "Allow",
-        "Principal" : {
-          "AWS" : "arn:aws:iam::${var.account_id}:root"
-        },
-        "Action" : "kms:*",
-        "Resource" : "*"
-      }
-    ]
-  })
+  policy = data.aws_iam_policy_document.bucket_kms_policy_combined.json
 }
 
 resource "aws_kms_alias" "s3" {
@@ -504,9 +545,47 @@ data "aws_iam_policy_document" "cc_https_policy" {
   }
 }
 
+data "aws_iam_policy_document" "cc_external_replication_to_primary_bucket" {
+  count = length(var.external_replication_role_arns) > 0 ? 1 : 0
+
+  statement {
+    sid    = "AllowExternalReplicationToPrimaryBucket"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = local.external_replication_account_root_arns
+    }
+
+    actions = [
+      "s3:ObjectOwnerOverrideToBucketOwner",
+      "s3:ReplicateObject",
+      "s3:ReplicateDelete",
+      "s3:ReplicateTags",
+    ]
+
+    condition {
+      test     = "ArnLike"
+      variable = "aws:PrincipalArn"
+      values   = local.external_replication_principal_arn_patterns
+    }
+
+    resources = [
+      "${aws_s3_bucket.this.arn}/*",
+    ]
+  }
+}
+
+data "aws_iam_policy_document" "cc_primary_bucket_policy_combined" {
+  source_policy_documents = concat(
+    [data.aws_iam_policy_document.cc_https_policy.json],
+    length(var.external_replication_role_arns) > 0 ? [data.aws_iam_policy_document.cc_external_replication_to_primary_bucket[0].json] : []
+  )
+}
+
 resource "aws_s3_bucket_policy" "cc_deny_http" {
   bucket = aws_s3_bucket.this.id
-  policy = data.aws_iam_policy_document.cc_https_policy.json
+  policy = data.aws_iam_policy_document.cc_primary_bucket_policy_combined.json
 }
 
 data "aws_iam_policy_document" "cc_https_policy_replica" {
@@ -564,6 +643,18 @@ data "aws_iam_policy_document" "cc_logs_combined_policy" {
 }
 
 locals {
+  external_replication_account_root_arns = [
+    for account_id in distinct([for arn in var.external_replication_role_arns : split(":", arn)[4]]) :
+    "arn:aws:iam::${account_id}:root"
+  ]
+
+  external_replication_principal_arn_patterns = flatten([
+    for arn in var.external_replication_role_arns : [
+      arn,
+      "arn:aws:sts::${split(":", arn)[4]}:assumed-role/${trimprefix(split(":", arn)[5], "role/")}/*",
+    ]
+  ])
+
   common_tags = merge(
     {
       Environment = var.environment
