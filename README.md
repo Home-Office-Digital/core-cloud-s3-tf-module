@@ -32,7 +32,12 @@ Please refer to the [Official Hashicorp Terraform Test documentation](https://de
 
 ## Usage 
 
-This module creates and manages three buckets: a primary bucket, a replica bucket, and a logs bucket.
+This module always creates a primary bucket.
+
+By default it also creates and manages a replica bucket and a logs bucket. You can disable either optional bucket independently using:
+
+- `enable_replica_bucket`
+- `enable_logs_bucket`
 
 Recommended settings:
 
@@ -41,7 +46,7 @@ Recommended settings:
 - Opt into mfa delete when possible.
 - S3 Encryption type must be 'aws:kms' or 'AES256'.
 
-- Note: S3 Event notifications, access logging and replication is enabled by default when using this module. All public access will be blocked for the S3 bucket and all connections to S3 buckets created by this module use TLS.
+- Note: S3 Event notifications are enabled by default. Access logging depends on `enable_logs_bucket` and replication depends on `enable_replica_bucket`. All public access will be blocked for the S3 buckets created by this module and all connections use TLS.
 - Note: GuardDuty Malware Protection is optional and disabled by default.
 
 ## GuardDuty Malware Protection
@@ -125,6 +130,24 @@ Implementation detail:
   - Net effect: two-step deployment works (destination first, source second) without granting broad account access.
 
 If the list is empty (default), no external replication permissions are added.
+
+## Report Writers To Primary Bucket
+
+To allow IAM roles (for example a source replication role used by S3 Batch) to write
+object list reports and completion reports into this module's primary bucket, set
+`report_writer_role_arns` to one or more IAM role ARNs.
+
+For least privilege, keep replication and reporting roles separate:
+
+- Use `external_replication_role_arns` on the destination bucket module call
+- Use `report_writer_role_arns` on the report bucket module call
+
+When set, this module adds:
+
+- Primary bucket policy permissions for `s3:ListBucket`, `s3:GetBucketLocation`, `s3:PutObject`, and `s3:PutObjectAcl`
+- KMS key policy permissions for those roles to use the bucket KMS key (`kms:Encrypt`, `kms:Decrypt`, `kms:ReEncrypt*`, `kms:GenerateDataKey*`, `kms:DescribeKey`)
+
+Like external replication permissions, this uses account root principals constrained by `aws:PrincipalArn` so destination policies can be applied before source roles exist.
 
 ### Lifecycle Example
 

@@ -103,10 +103,35 @@ variable "external_replication_role_arns" {
   }
 }
 
+variable "report_writer_role_arns" {
+  description = "Optional list of IAM role ARNs allowed to write S3 Batch object list and completion reports to this bucket"
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for arn in var.report_writer_role_arns : can(regex("^arn:aws:iam::[0-9]{12}:role/.+", arn))
+    ])
+    error_message = "report_writer_role_arns must contain valid IAM role ARNs."
+  }
+}
+
 variable "enable_malware_protection" {
   description = "Enable GuardDuty Malware Protection for the primary S3 bucket"
   type        = bool
   default     = false
+}
+
+variable "enable_replica_bucket" {
+  description = "Create and manage the module's replica bucket, including built-in replication from the primary bucket"
+  type        = bool
+  default     = true
+}
+
+variable "enable_logs_bucket" {
+  description = "Create and manage the module's logs bucket, including built-in S3 server access logging"
+  type        = bool
+  default     = true
 }
 
 variable "default_abort_incomplete_multipart_upload_days" {

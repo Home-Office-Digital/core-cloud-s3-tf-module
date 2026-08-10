@@ -54,10 +54,43 @@ data "aws_iam_policy_document" "bucket_kms_policy_external_replication" {
   }
 }
 
+data "aws_iam_policy_document" "bucket_kms_policy_report_writers" {
+  count = length(var.report_writer_role_arns) > 0 ? 1 : 0
+
+  # Use account root principals constrained by aws:PrincipalArn so destination
+  # policies can be applied before source roles exist.
+  statement {
+    sid    = "AllowReportWriterRoles"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = local.report_writer_account_root_arns
+    }
+
+    actions = [
+      "kms:Encrypt",
+      "kms:Decrypt",
+      "kms:ReEncrypt*",
+      "kms:GenerateDataKey*",
+      "kms:DescribeKey",
+    ]
+
+    condition {
+      test     = "ArnLike"
+      variable = "aws:PrincipalArn"
+      values   = local.report_writer_principal_arn_patterns
+    }
+
+    resources = ["*"]
+  }
+}
+
 data "aws_iam_policy_document" "bucket_kms_policy_combined" {
   source_policy_documents = concat(
     [data.aws_iam_policy_document.bucket_kms_policy_base.json],
-    length(var.external_replication_role_arns) > 0 ? [data.aws_iam_policy_document.bucket_kms_policy_external_replication[0].json] : []
+    length(var.external_replication_role_arns) > 0 ? [data.aws_iam_policy_document.bucket_kms_policy_external_replication[0].json] : [],
+    length(var.report_writer_role_arns) > 0 ? [data.aws_iam_policy_document.bucket_kms_policy_report_writers[0].json] : []
   )
 }
 
@@ -158,15 +191,17 @@ module "lifecycle_primary" {
 }
 
 module "lifecycle_replica" {
+  count                                          = var.enable_replica_bucket ? 1 : 0
   source                                         = "./modules/s3_bucket_lifecycle_configuration"
-  bucket_id                                      = aws_s3_bucket.s3_replica.id
+  bucket_id                                      = aws_s3_bucket.s3_replica[0].id
   rules                                          = var.lifecycle_replica_rules
   default_abort_incomplete_multipart_upload_days = var.default_abort_incomplete_multipart_upload_days
 }
 
 module "lifecycle_logs" {
+  count                                          = var.enable_logs_bucket ? 1 : 0
   source                                         = "./modules/s3_bucket_lifecycle_configuration"
-  bucket_id                                      = aws_s3_bucket.logs.id
+  bucket_id                                      = aws_s3_bucket.logs[0].id
   rules                                          = var.lifecycle_logs_rules
   default_abort_incomplete_multipart_upload_days = var.default_abort_incomplete_multipart_upload_days
 }
@@ -185,12 +220,16 @@ data "aws_iam_policy_document" "cc_assume_role" {
 }
 
 resource "aws_iam_role" "cc_s3_replication_role" {
+  count = var.enable_replica_bucket ? 1 : 0
+
   name               = "${var.project_name}-${var.bucket_name}-${var.environment}-replica-role"
   assume_role_policy = data.aws_iam_policy_document.cc_assume_role.json
   tags               = local.common_tags
 }
 
 data "aws_iam_policy_document" "cc_s3_replication" {
+  count = var.enable_replica_bucket ? 1 : 0
+
   statement {
     effect = "Allow"
 
@@ -221,28 +260,34 @@ data "aws_iam_policy_document" "cc_s3_replication" {
       "s3:ReplicateTags",
     ]
 
-    resources = ["${aws_s3_bucket.s3_replica.arn}/*"]
+    resources = ["${aws_s3_bucket.s3_replica[0].arn}/*"]
   }
 }
 
 resource "aws_iam_policy" "s3_replication" {
+  count = var.enable_replica_bucket ? 1 : 0
+
   name   = "${var.project_name}-${var.bucket_name}-${var.environment}-replica-policy"
-  policy = data.aws_iam_policy_document.cc_s3_replication.json
+  policy = data.aws_iam_policy_document.cc_s3_replication[0].json
   tags   = local.common_tags
 }
 
 resource "aws_iam_role_policy_attachment" "s3_replication" {
-  role       = aws_iam_role.cc_s3_replication_role.name
-  policy_arn = aws_iam_policy.s3_replication.arn
+  count = var.enable_replica_bucket ? 1 : 0
+
+  role       = aws_iam_role.cc_s3_replication_role[0].name
+  policy_arn = aws_iam_policy.s3_replication[0].arn
 }
 
 resource "aws_s3_bucket" "s3_replica" {
+  count  = var.enable_replica_bucket ? 1 : 0
   bucket = "${var.project_name}-${var.bucket_name}-${var.environment}-replica"
   tags   = local.common_tags
 }
 
 resource "aws_s3_bucket_public_access_block" "replica" {
-  bucket = aws_s3_bucket.s3_replica.id
+  count  = var.enable_replica_bucket ? 1 : 0
+  bucket = aws_s3_bucket.s3_replica[0].id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -251,14 +296,16 @@ resource "aws_s3_bucket_public_access_block" "replica" {
 }
 
 resource "aws_s3_bucket_versioning" "s3_replica_versioning" {
-  bucket = aws_s3_bucket.s3_replica.id
+  count  = var.enable_replica_bucket ? 1 : 0
+  bucket = aws_s3_bucket.s3_replica[0].id
   versioning_configuration {
     status = "Enabled"
   }
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "replica" {
-  bucket = aws_s3_bucket.s3_replica.id
+  count  = var.enable_replica_bucket ? 1 : 0
+  bucket = aws_s3_bucket.s3_replica[0].id
 
   rule {
     apply_server_side_encryption_by_default {
@@ -270,17 +317,19 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "replica" {
 }
 
 resource "aws_s3_bucket_replication_configuration" "cc_bucket_replication_rule" {
+  count = var.enable_replica_bucket ? 1 : 0
+
   depends_on = [
     aws_s3_bucket_versioning.this,
-    aws_s3_bucket_versioning.s3_replica_versioning,
+    aws_s3_bucket_versioning.s3_replica_versioning[0],
   ]
   bucket = aws_s3_bucket.this.id
-  role   = aws_iam_role.cc_s3_replication_role.arn
+  role   = aws_iam_role.cc_s3_replication_role[0].arn
   rule {
     id = var.replication_rule
     filter {}
     destination {
-      bucket        = aws_s3_bucket.s3_replica.arn
+      bucket        = aws_s3_bucket.s3_replica[0].arn
       storage_class = "STANDARD_IA"
 
       metrics {
@@ -460,12 +509,14 @@ resource "aws_guardduty_malware_protection_plan" "cc_s3" {
 }
 
 resource "aws_s3_bucket" "logs" {
+  count  = var.enable_logs_bucket ? 1 : 0
   bucket = "${var.project_name}-${var.bucket_name}-${var.environment}-logs"
   tags   = local.common_tags
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "logs" {
-  bucket = aws_s3_bucket.logs.id
+  count  = var.enable_logs_bucket ? 1 : 0
+  bucket = aws_s3_bucket.logs[0].id
 
   rule {
     apply_server_side_encryption_by_default {
@@ -477,14 +528,16 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "logs" {
 }
 
 resource "aws_s3_bucket_versioning" "s3_logs_versioning" {
-  bucket = aws_s3_bucket.logs.id
+  count  = var.enable_logs_bucket ? 1 : 0
+  bucket = aws_s3_bucket.logs[0].id
   versioning_configuration {
     status = "Enabled"
   }
 }
 
 resource "aws_s3_bucket_public_access_block" "logs" {
-  bucket = aws_s3_bucket.logs.id
+  count  = var.enable_logs_bucket ? 1 : 0
+  bucket = aws_s3_bucket.logs[0].id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -493,13 +546,15 @@ resource "aws_s3_bucket_public_access_block" "logs" {
 }
 
 data "aws_iam_policy_document" "cc_logging_bucket_policy" {
+  count = var.enable_logs_bucket ? 1 : 0
+
   statement {
     principals {
       identifiers = ["logging.s3.amazonaws.com"]
       type        = "Service"
     }
     actions   = ["s3:PutObject", "s3:DeleteObject"]
-    resources = ["${aws_s3_bucket.logs.arn}/*"]
+    resources = ["${aws_s3_bucket.logs[0].arn}/*"]
     condition {
       test     = "StringEquals"
       variable = "aws:SourceAccount"
@@ -509,13 +564,15 @@ data "aws_iam_policy_document" "cc_logging_bucket_policy" {
 }
 
 resource "aws_s3_bucket_policy" "logging" {
-  bucket = aws_s3_bucket.logs.bucket
-  policy = data.aws_iam_policy_document.cc_logs_combined_policy.json
+  count  = var.enable_logs_bucket ? 1 : 0
+  bucket = aws_s3_bucket.logs[0].bucket
+  policy = data.aws_iam_policy_document.cc_logs_combined_policy[0].json
 }
 
 resource "aws_s3_bucket_logging" "bucket_logging" {
+  count         = var.enable_logs_bucket ? 1 : 0
   bucket        = aws_s3_bucket.this.bucket
-  target_bucket = aws_s3_bucket.logs.bucket
+  target_bucket = aws_s3_bucket.logs[0].bucket
   target_prefix = "log/"
   target_object_key_format {
     partitioned_prefix {
@@ -576,10 +633,67 @@ data "aws_iam_policy_document" "cc_external_replication_to_primary_bucket" {
   }
 }
 
+data "aws_iam_policy_document" "cc_report_writers_to_primary_bucket" {
+  count = length(var.report_writer_role_arns) > 0 ? 1 : 0
+
+  statement {
+    sid    = "AllowReportWritersListBucket"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = local.report_writer_account_root_arns
+    }
+
+    actions = [
+      "s3:ListBucket",
+      "s3:GetBucketLocation",
+    ]
+
+    condition {
+      test     = "ArnLike"
+      variable = "aws:PrincipalArn"
+      values   = local.report_writer_principal_arn_patterns
+    }
+
+    resources = [
+      aws_s3_bucket.this.arn,
+    ]
+  }
+
+  statement {
+    sid    = "AllowReportWritersPutObject"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = local.report_writer_account_root_arns
+    }
+
+    actions = [
+      "s3:GetObject",
+      "s3:GetObjectVersion",
+      "s3:PutObject",
+      "s3:PutObjectAcl",
+    ]
+
+    condition {
+      test     = "ArnLike"
+      variable = "aws:PrincipalArn"
+      values   = local.report_writer_principal_arn_patterns
+    }
+
+    resources = [
+      "${aws_s3_bucket.this.arn}/*",
+    ]
+  }
+}
+
 data "aws_iam_policy_document" "cc_primary_bucket_policy_combined" {
   source_policy_documents = concat(
     [data.aws_iam_policy_document.cc_https_policy.json],
-    length(var.external_replication_role_arns) > 0 ? [data.aws_iam_policy_document.cc_external_replication_to_primary_bucket[0].json] : []
+    length(var.external_replication_role_arns) > 0 ? [data.aws_iam_policy_document.cc_external_replication_to_primary_bucket[0].json] : [],
+    length(var.report_writer_role_arns) > 0 ? [data.aws_iam_policy_document.cc_report_writers_to_primary_bucket[0].json] : []
   )
 }
 
@@ -589,6 +703,8 @@ resource "aws_s3_bucket_policy" "cc_deny_http" {
 }
 
 data "aws_iam_policy_document" "cc_https_policy_replica" {
+  count = var.enable_replica_bucket ? 1 : 0
+
   statement {
     principals {
       type        = "AWS"
@@ -604,17 +720,20 @@ data "aws_iam_policy_document" "cc_https_policy_replica" {
       values   = ["false"]
     }
     resources = [
-      "${aws_s3_bucket.s3_replica.arn}/*",
+      "${aws_s3_bucket.s3_replica[0].arn}/*",
     ]
   }
 }
 
 resource "aws_s3_bucket_policy" "cc_deny_http_replica" {
-  bucket = aws_s3_bucket.s3_replica.id
-  policy = data.aws_iam_policy_document.cc_https_policy_replica.json
+  count  = var.enable_replica_bucket ? 1 : 0
+  bucket = aws_s3_bucket.s3_replica[0].id
+  policy = data.aws_iam_policy_document.cc_https_policy_replica[0].json
 }
 
 data "aws_iam_policy_document" "cc_https_policy_logs" {
+  count = var.enable_logs_bucket ? 1 : 0
+
   statement {
     principals {
       type        = "AWS"
@@ -630,15 +749,17 @@ data "aws_iam_policy_document" "cc_https_policy_logs" {
       values   = ["false"]
     }
     resources = [
-      "${aws_s3_bucket.logs.arn}/*",
+      "${aws_s3_bucket.logs[0].arn}/*",
     ]
   }
 }
 
 data "aws_iam_policy_document" "cc_logs_combined_policy" {
+  count = var.enable_logs_bucket ? 1 : 0
+
   source_policy_documents = [
-    data.aws_iam_policy_document.cc_logging_bucket_policy.json,
-    data.aws_iam_policy_document.cc_https_policy_logs.json,
+    data.aws_iam_policy_document.cc_logging_bucket_policy[0].json,
+    data.aws_iam_policy_document.cc_https_policy_logs[0].json,
   ]
 }
 
@@ -650,6 +771,18 @@ locals {
 
   external_replication_principal_arn_patterns = flatten([
     for arn in var.external_replication_role_arns : [
+      arn,
+      "arn:aws:sts::${split(":", arn)[4]}:assumed-role/${trimprefix(split(":", arn)[5], "role/")}/*",
+    ]
+  ])
+
+  report_writer_account_root_arns = [
+    for account_id in distinct([for arn in var.report_writer_role_arns : split(":", arn)[4]]) :
+    "arn:aws:iam::${account_id}:root"
+  ]
+
+  report_writer_principal_arn_patterns = flatten([
+    for arn in var.report_writer_role_arns : [
       arn,
       "arn:aws:sts::${split(":", arn)[4]}:assumed-role/${trimprefix(split(":", arn)[5], "role/")}/*",
     ]
