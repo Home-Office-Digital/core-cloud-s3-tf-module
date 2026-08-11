@@ -116,6 +116,19 @@ variable "report_writer_role_arns" {
   }
 }
 
+variable "datasync_role_arns" {
+  description = "Optional list of IAM role ARNs allowed to use this bucket as an AWS DataSync destination location"
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for arn in var.datasync_role_arns : can(regex("^arn:aws:iam::[0-9]{12}:role/.+", arn))
+    ])
+    error_message = "datasync_role_arns must contain valid IAM role ARNs."
+  }
+}
+
 variable "enable_malware_protection" {
   description = "Enable GuardDuty Malware Protection for the primary S3 bucket"
   type        = bool

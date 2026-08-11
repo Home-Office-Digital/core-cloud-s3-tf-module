@@ -149,6 +149,18 @@ When set, this module adds:
 
 Like external replication permissions, this uses account root principals constrained by `aws:PrincipalArn` so destination policies can be applied before source roles exist.
 
+## DataSync To Primary Bucket
+
+To allow AWS DataSync to use this bucket as a destination location, set
+`datasync_role_arns` to one or more IAM role ARNs used by your DataSync location.
+
+When set, this module adds:
+
+- Primary bucket policy permissions for `s3:GetBucketLocation`, `s3:ListBucket`, `s3:ListBucketMultipartUploads`, `s3:AbortMultipartUpload`, `s3:DeleteObject`, `s3:GetObject`, `s3:GetObjectTagging`, `s3:GetObjectVersion`, `s3:GetObjectVersionTagging`, `s3:ListMultipartUploadParts`, `s3:PutObject`, and `s3:PutObjectTagging`
+- KMS grants for those roles to use the bucket KMS key (`Encrypt`, `Decrypt`, `ReEncryptFrom`, `ReEncryptTo`, `GenerateDataKey`, `GenerateDataKeyWithoutPlaintext`)
+
+Note: bucket policy admission still uses account root principals constrained by `aws:PrincipalArn`, but KMS grants are created directly for each supplied role ARN and therefore require those roles to exist before apply.
+
 ### Lifecycle Example
 
 Override primary lifecycle:

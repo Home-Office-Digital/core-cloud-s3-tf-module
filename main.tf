@@ -99,6 +99,22 @@ resource "aws_kms_key_policy" "bucket_kms_policy" {
   policy = data.aws_iam_policy_document.bucket_kms_policy_combined.json
 }
 
+resource "aws_kms_grant" "datasync_destination_access" {
+  count = length(var.datasync_role_arns)
+
+  name              = "datasync-destination-${replace(var.project_name, ".", "-")}-${replace(var.bucket_name, ".", "-")}-${replace(var.environment, ".", "-")}-${count.index}"
+  key_id            = aws_kms_key.s3.id
+  grantee_principal = var.datasync_role_arns[count.index]
+  operations = [
+    "Encrypt",
+    "Decrypt",
+    "ReEncryptFrom",
+    "ReEncryptTo",
+    "GenerateDataKey",
+    "GenerateDataKeyWithoutPlaintext",
+  ]
+}
+
 resource "aws_kms_alias" "s3" {
   name          = "alias/${var.kms_alias}"
   target_key_id = aws_kms_key.s3.id
@@ -689,11 +705,74 @@ data "aws_iam_policy_document" "cc_report_writers_to_primary_bucket" {
   }
 }
 
+data "aws_iam_policy_document" "cc_datasync_to_primary_bucket" {
+  count = length(var.datasync_role_arns) > 0 ? 1 : 0
+
+  statement {
+    sid    = "AllowDataSyncListBucket"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = local.datasync_account_root_arns
+    }
+
+    actions = [
+      "s3:GetBucketLocation",
+      "s3:ListBucket",
+      "s3:ListBucketMultipartUploads",
+    ]
+
+    condition {
+      test     = "ArnLike"
+      variable = "aws:PrincipalArn"
+      values   = local.datasync_principal_arn_patterns
+    }
+
+    resources = [
+      aws_s3_bucket.this.arn,
+    ]
+  }
+
+  statement {
+    sid    = "AllowDataSyncObjectOperations"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = local.datasync_account_root_arns
+    }
+
+    actions = [
+      "s3:AbortMultipartUpload",
+      "s3:DeleteObject",
+      "s3:GetObject",
+      "s3:GetObjectTagging",
+      "s3:GetObjectVersion",
+      "s3:GetObjectVersionTagging",
+      "s3:ListMultipartUploadParts",
+      "s3:PutObject",
+      "s3:PutObjectTagging",
+    ]
+
+    condition {
+      test     = "ArnLike"
+      variable = "aws:PrincipalArn"
+      values   = local.datasync_principal_arn_patterns
+    }
+
+    resources = [
+      "${aws_s3_bucket.this.arn}/*",
+    ]
+  }
+}
+
 data "aws_iam_policy_document" "cc_primary_bucket_policy_combined" {
   source_policy_documents = concat(
     [data.aws_iam_policy_document.cc_https_policy.json],
     length(var.external_replication_role_arns) > 0 ? [data.aws_iam_policy_document.cc_external_replication_to_primary_bucket[0].json] : [],
-    length(var.report_writer_role_arns) > 0 ? [data.aws_iam_policy_document.cc_report_writers_to_primary_bucket[0].json] : []
+    length(var.report_writer_role_arns) > 0 ? [data.aws_iam_policy_document.cc_report_writers_to_primary_bucket[0].json] : [],
+    length(var.datasync_role_arns) > 0 ? [data.aws_iam_policy_document.cc_datasync_to_primary_bucket[0].json] : []
   )
 }
 
@@ -764,29 +843,36 @@ data "aws_iam_policy_document" "cc_logs_combined_policy" {
 }
 
 locals {
-  external_replication_account_root_arns = [
-    for account_id in distinct([for arn in var.external_replication_role_arns : split(":", arn)[4]]) :
-    "arn:aws:iam::${account_id}:root"
-  ]
+  role_arns_by_access_type = {
+    external_replication = var.external_replication_role_arns
+    report_writer        = var.report_writer_role_arns
+    datasync             = var.datasync_role_arns
+  }
 
-  external_replication_principal_arn_patterns = flatten([
-    for arn in var.external_replication_role_arns : [
-      arn,
-      "arn:aws:sts::${split(":", arn)[4]}:assumed-role/${trimprefix(split(":", arn)[5], "role/")}/*",
+  account_root_arns_by_access_type = {
+    for access_name, role_arns in local.role_arns_by_access_type :
+    access_name => [
+      for account_id in distinct([for arn in role_arns : split(":", arn)[4]]) :
+      "arn:aws:iam::${account_id}:root"
     ]
-  ])
+  }
 
-  report_writer_account_root_arns = [
-    for account_id in distinct([for arn in var.report_writer_role_arns : split(":", arn)[4]]) :
-    "arn:aws:iam::${account_id}:root"
-  ]
+  principal_arn_patterns_by_access_type = {
+    for access_name, role_arns in local.role_arns_by_access_type :
+    access_name => flatten([
+      for arn in role_arns : [
+        arn,
+        "arn:aws:sts::${split(":", arn)[4]}:assumed-role/${trimprefix(split(":", arn)[5], "role/")}/*",
+      ]
+    ])
+  }
 
-  report_writer_principal_arn_patterns = flatten([
-    for arn in var.report_writer_role_arns : [
-      arn,
-      "arn:aws:sts::${split(":", arn)[4]}:assumed-role/${trimprefix(split(":", arn)[5], "role/")}/*",
-    ]
-  ])
+  external_replication_account_root_arns      = local.account_root_arns_by_access_type.external_replication
+  external_replication_principal_arn_patterns = local.principal_arn_patterns_by_access_type.external_replication
+  report_writer_account_root_arns             = local.account_root_arns_by_access_type.report_writer
+  report_writer_principal_arn_patterns        = local.principal_arn_patterns_by_access_type.report_writer
+  datasync_account_root_arns                  = local.account_root_arns_by_access_type.datasync
+  datasync_principal_arn_patterns             = local.principal_arn_patterns_by_access_type.datasync
 
   common_tags = merge(
     {
