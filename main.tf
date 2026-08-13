@@ -86,33 +86,57 @@ data "aws_iam_policy_document" "bucket_kms_policy_report_writers" {
   }
 }
 
+data "aws_iam_policy_document" "bucket_kms_policy_datasync" {
+  count = length(var.datasync_role_arns) > 0 ? 1 : 0
+
+  # Use wildcard principal constrained by account and aws:PrincipalArn so
+  # policies can be applied before DataSync roles exist while granting
+  # direct key usage to matching role/session principals.
+  statement {
+    sid    = "AllowDataSyncRoles"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = ["*"]
+    }
+
+    actions = [
+      "kms:Encrypt",
+      "kms:Decrypt",
+      "kms:ReEncrypt*",
+      "kms:GenerateDataKey*",
+      "kms:DescribeKey",
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:PrincipalAccount"
+      values   = distinct([for arn in var.datasync_role_arns : split(":", arn)[4]])
+    }
+
+    condition {
+      test     = "ArnLike"
+      variable = "aws:PrincipalArn"
+      values   = local.datasync_principal_arn_patterns
+    }
+
+    resources = ["*"]
+  }
+}
+
 data "aws_iam_policy_document" "bucket_kms_policy_combined" {
   source_policy_documents = concat(
     [data.aws_iam_policy_document.bucket_kms_policy_base.json],
     length(var.external_replication_role_arns) > 0 ? [data.aws_iam_policy_document.bucket_kms_policy_external_replication[0].json] : [],
-    length(var.report_writer_role_arns) > 0 ? [data.aws_iam_policy_document.bucket_kms_policy_report_writers[0].json] : []
+    length(var.report_writer_role_arns) > 0 ? [data.aws_iam_policy_document.bucket_kms_policy_report_writers[0].json] : [],
+    length(var.datasync_role_arns) > 0 ? [data.aws_iam_policy_document.bucket_kms_policy_datasync[0].json] : []
   )
 }
 
 resource "aws_kms_key_policy" "bucket_kms_policy" {
   key_id = aws_kms_key.s3.id
   policy = data.aws_iam_policy_document.bucket_kms_policy_combined.json
-}
-
-resource "aws_kms_grant" "datasync_destination_access" {
-  count = length(var.datasync_role_arns)
-
-  name              = "datasync-destination-${replace(var.project_name, ".", "-")}-${replace(var.bucket_name, ".", "-")}-${replace(var.environment, ".", "-")}-${count.index}"
-  key_id            = aws_kms_key.s3.id
-  grantee_principal = var.datasync_role_arns[count.index]
-  operations = [
-    "Encrypt",
-    "Decrypt",
-    "ReEncryptFrom",
-    "ReEncryptTo",
-    "GenerateDataKey",
-    "GenerateDataKeyWithoutPlaintext",
-  ]
 }
 
 resource "aws_kms_alias" "s3" {
@@ -862,7 +886,7 @@ locals {
     access_name => flatten([
       for arn in role_arns : [
         arn,
-        "arn:aws:sts::${split(":", arn)[4]}:assumed-role/${trimprefix(split(":", arn)[5], "role/")}/*",
+        "arn:aws:sts::${split(":", arn)[4]}:assumed-role/${element(reverse(split("/", trimprefix(split(":", arn)[5], "role/"))), 0)}/*",
       ]
     ])
   }
