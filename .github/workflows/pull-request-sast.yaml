@@ -59,4 +59,7 @@ jobs:
 
   checkov-scan:
       uses: Home-Office-Digital/core-cloud-workflow-checkov-sast-scan/.github/workflows/checkov-scan-base.yaml@121fa86c79521d82b4f92237493584f44d6d8143
+      secrets:
+        EXEMPTIONS_APP_ID: ${{ secrets.EXEMPTIONS_APP_ID }}
+        EXEMPTIONS_APP_PRIVATE_KEY: ${{ secrets.EXEMPTIONS_APP_PRIVATE_KEY }}
 
