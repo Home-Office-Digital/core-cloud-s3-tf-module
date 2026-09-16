@@ -6,6 +6,33 @@ mock_provider "aws" {
       json = "{}"
     }
   }
+  # Combined policy documents use source_policy_documents, which requires valid
+  # JSON. Mock the source and combined documents so they validate under the mock
+  # provider.
+  override_data {
+    target = data.aws_iam_policy_document.bucket_kms_policy_base
+    values = {
+      json = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"EnableIAMUserPermissions\",\"Effect\":\"Allow\",\"Action\":\"kms:*\",\"Resource\":\"*\"}]}"
+    }
+  }
+  override_data {
+    target = data.aws_iam_policy_document.cc_https_policy
+    values = {
+      json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}"
+    }
+  }
+  override_data {
+    target = data.aws_iam_policy_document.bucket_kms_policy_combined
+    values = {
+      json = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"EnableIAMUserPermissions\",\"Effect\":\"Allow\",\"Action\":\"kms:*\",\"Resource\":\"*\"}]}"
+    }
+  }
+  override_data {
+    target = data.aws_iam_policy_document.cc_primary_bucket_policy_combined
+    values = {
+      json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}"
+    }
+  }
 }
 
 variables {

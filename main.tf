@@ -16,8 +16,19 @@ data "aws_iam_policy_document" "bucket_kms_policy_base" {
       identifiers = ["arn:aws:iam::${var.account_id}:root"]
     }
 
-    actions   = ["kms:*"]
+    actions = ["kms:*"]
+    # resources = ["*"] refers to this key itself, which is the only correct form
+    # for a KMS key policy. Constrain the statement to principals in the owning
+    # account so key administration cannot be delegated outside it (also satisfies
+    # CKV_AWS_356, which requires a constraining condition on wildcard-resource
+    # statements).
     resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:PrincipalAccount"
+      values   = [var.account_id]
+    }
   }
 }
 

@@ -6,6 +6,33 @@ mock_provider "aws" {
       json = "{}"
     }
   }
+  # Combined policy documents use source_policy_documents, which requires valid
+  # JSON. Mock the source and combined documents so they validate under the mock
+  # provider.
+  override_data {
+    target = data.aws_iam_policy_document.bucket_kms_policy_base
+    values = {
+      json = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"EnableIAMUserPermissions\",\"Effect\":\"Allow\",\"Action\":\"kms:*\",\"Resource\":\"*\"}]}"
+    }
+  }
+  override_data {
+    target = data.aws_iam_policy_document.cc_https_policy
+    values = {
+      json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}"
+    }
+  }
+  override_data {
+    target = data.aws_iam_policy_document.bucket_kms_policy_combined
+    values = {
+      json = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"EnableIAMUserPermissions\",\"Effect\":\"Allow\",\"Action\":\"kms:*\",\"Resource\":\"*\"}]}"
+    }
+  }
+  override_data {
+    target = data.aws_iam_policy_document.cc_primary_bucket_policy_combined
+    values = {
+      json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}"
+    }
+  }
 }
 
 variables {
@@ -42,6 +69,8 @@ run "validate_no_additional_lifecycle_rules" {
   command = plan
 
   variables {
+    enable_replica_bucket   = true
+    enable_logs_bucket      = true
     lifecycle_primary_rules = []
     lifecycle_replica_rules = []
     lifecycle_logs_rules    = []
@@ -53,12 +82,12 @@ run "validate_no_additional_lifecycle_rules" {
   }
 
   assert {
-    condition     = length(module.lifecycle_replica.rendered_rule_ids) == 1
+    condition     = length(module.lifecycle_replica[0].rendered_rule_ids) == 1
     error_message = "Replica should render only the built-in global abort rule when input is []"
   }
 
   assert {
-    condition     = length(module.lifecycle_logs.rendered_rule_ids) == 1
+    condition     = length(module.lifecycle_logs[0].rendered_rule_ids) == 1
     error_message = "Logs should render only the built-in global abort rule when input is []"
   }
 
@@ -68,12 +97,12 @@ run "validate_no_additional_lifecycle_rules" {
   }
 
   assert {
-    condition     = contains(module.lifecycle_replica.rendered_rule_ids, "cc-default-abort-incomplete-multipart-uploads")
+    condition     = contains(module.lifecycle_replica[0].rendered_rule_ids, "cc-default-abort-incomplete-multipart-uploads")
     error_message = "Replica should include the built-in global abort rule"
   }
 
   assert {
-    condition     = contains(module.lifecycle_logs.rendered_rule_ids, "cc-default-abort-incomplete-multipart-uploads")
+    condition     = contains(module.lifecycle_logs[0].rendered_rule_ids, "cc-default-abort-incomplete-multipart-uploads")
     error_message = "Logs should include the built-in global abort rule"
   }
 }
@@ -81,23 +110,28 @@ run "validate_no_additional_lifecycle_rules" {
 run "validate_module_builtin_lifecycle_defaults" {
   command = plan
 
+  variables {
+    enable_replica_bucket = true
+    enable_logs_bucket    = true
+  }
+
   assert {
     condition     = length(module.lifecycle_primary.rendered_rule_ids) == 1
     error_message = "Primary should default to only the built-in global abort rule"
   }
 
   assert {
-    condition     = length(module.lifecycle_replica.rendered_rule_ids) == 1
+    condition     = length(module.lifecycle_replica[0].rendered_rule_ids) == 1
     error_message = "Replica should default to only the built-in global abort rule"
   }
 
   assert {
-    condition     = length(module.lifecycle_logs.rendered_rule_ids) == 2
+    condition     = length(module.lifecycle_logs[0].rendered_rule_ids) == 2
     error_message = "Logs should include built-in global abort plus default retention"
   }
 
   assert {
-    condition     = contains(module.lifecycle_logs.rendered_rule_ids, "cc-bucket-lifecycle-rule-logs")
+    condition     = contains(module.lifecycle_logs[0].rendered_rule_ids, "cc-bucket-lifecycle-rule-logs")
     error_message = "Logs should include built-in retention rule"
   }
 }
@@ -106,6 +140,8 @@ run "validate_mixed_overrides_and_defaults" {
   command = plan
 
   variables {
+    enable_replica_bucket = true
+    enable_logs_bucket    = true
     lifecycle_primary_rules = [
       {
         id     = "primary-only-retention"
@@ -141,12 +177,12 @@ run "validate_mixed_overrides_and_defaults" {
   }
 
   assert {
-    condition     = contains(module.lifecycle_replica.rendered_rule_ids, "replica-only-retention")
+    condition     = contains(module.lifecycle_replica[0].rendered_rule_ids, "replica-only-retention")
     error_message = "Replica should include replica-only-retention"
   }
 
   assert {
-    condition     = contains(module.lifecycle_logs.rendered_rule_ids, "logs-only-retention")
+    condition     = contains(module.lifecycle_logs[0].rendered_rule_ids, "logs-only-retention")
     error_message = "Logs should include logs-only-retention"
   }
 }
