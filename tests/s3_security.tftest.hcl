@@ -6,13 +6,16 @@ mock_provider "aws" {
       json = "{}"
     }
   }
-  # Combined policy documents use source_policy_documents, which requires valid
-  # JSON. Mock the source and combined documents so they validate under the mock
-  # provider.
+  # These overrides supply syntactically-valid JSON only, so the plan succeeds
+  # under mock_provider (which otherwise renders aws_iam_policy_document as
+  # non-JSON and breaks source_policy_documents). The empty policy is a
+  # deliberate placeholder, not a copy of the real policy — no assertion here
+  # inspects policy content. Policy behaviour is covered by the real-provider
+  # tests (kms_policy.tftest.hcl / s3_security.tftest.hcl).
   override_data {
     target = data.aws_iam_policy_document.bucket_kms_policy_base
     values = {
-      json = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"EnableIAMUserPermissions\",\"Effect\":\"Allow\",\"Action\":\"kms:*\",\"Resource\":\"*\"}]}"
+      json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}"
     }
   }
   override_data {
@@ -24,7 +27,7 @@ mock_provider "aws" {
   override_data {
     target = data.aws_iam_policy_document.bucket_kms_policy_combined
     values = {
-      json = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"EnableIAMUserPermissions\",\"Effect\":\"Allow\",\"Action\":\"kms:*\",\"Resource\":\"*\"}]}"
+      json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}"
     }
   }
   override_data {
