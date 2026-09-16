@@ -7,6 +7,12 @@ on:
         required: true
       sonar_host_url:
         required: true
+      EXEMPTIONS_APP_ID:
+        description: GitHub App ID for centrally-managed Checkov HIGH/CRITICAL exemptions. Applied by the Core Cloud team when approved.
+        required: false
+      EXEMPTIONS_APP_PRIVATE_KEY:
+        description: GitHub App private key for centrally-managed Checkov HIGH/CRITICAL exemptions. Applied by the Core Cloud team when approved.
+        required: false
   push:
     branches:
       - main
@@ -58,7 +64,7 @@ jobs:
         sonar_host_url: ${{ secrets.sonar_host_url }}
 
   checkov-scan:
-      uses: Home-Office-Digital/core-cloud-workflow-checkov-sast-scan/.github/workflows/checkov-scan-base.yaml@121fa86c79521d82b4f92237493584f44d6d8143
+      uses: Home-Office-Digital/core-cloud-workflow-checkov-sast-scan/.github/workflows/checkov-scan-base.yaml@1.21.0
       secrets:
         EXEMPTIONS_APP_ID: ${{ secrets.EXEMPTIONS_APP_ID }}
         EXEMPTIONS_APP_PRIVATE_KEY: ${{ secrets.EXEMPTIONS_APP_PRIVATE_KEY }}
