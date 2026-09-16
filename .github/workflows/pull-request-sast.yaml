@@ -59,4 +59,3 @@ jobs:
 
   checkov-scan:
       uses: Home-Office-Digital/core-cloud-workflow-checkov-sast-scan/.github/workflows/checkov-scan-base.yaml@1.21.0
-
